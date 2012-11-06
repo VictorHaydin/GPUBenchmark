@@ -2,11 +2,26 @@
 *.slo
 *.lo
 *.o
+*.exe
+*.obj
+*.pdb
 
 # Compiled Dynamic libraries
 *.so
+*.dll
 
 # Compiled Static libraries
 *.lai
 *.la
 *.a
+
+# Build related files
+*.sdf
+*.opensdf
+*.filters
+*.user
+*.suo
+
+Build/VS2010/x64/*
+Build/VS2010/Source/*
+Build/VS2010/ipch/*
