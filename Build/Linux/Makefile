@@ -1,26 +1,47 @@
-all:	GPUBenchmark
+SOURCE_PATH = ../../Source/
 
-Main.o:	Main.cpp
-	nvcc -c Main.cpp -Xcompiler "-fPIC -O2 -g"
-    
-CTools.o:	Common/CTools.cpp Common/CTools.h
-	nvcc -c Common/CTools.cpp -D CUDA50 -Xcompiler "-fPIC -O2 -g"
+CPP_FLAGS = -Xcompiler "-fPIC -O2 -g -std=gnu++0x"
+CPP_FLAGS_COMPUTE_20 = -D CUDA42 
+CPP_FLAGS_COMPUTE_35 = -D CUDA50
 
-CUDATools.o:	Common/CUDATools.cpp Common/CUDATools.h
-	nvcc -c Common/CUDATools.cpp -D CUDA50 -Xcompiler "-fPIC -O2 -g"
+CU_FLAGS = -use_fast_math -Xcompiler "-fPIC -O2 -g"
+CU_FLAGS_COMPUTE_20 = -D CUDA42 -gencode=arch=compute_20,code=\"sm_20,compute_20\"
+CU_FLAGS_COMPUTE_35 = -dc -D CUDA50 -gencode=arch=compute_35,code=\"sm_35,compute_35\"
 
-CUDATools_cu.o:	Common/CUDATools.cu Common/CUDATools.h
-	nvcc -c -dc -o CUDATools_cu.o Common/CUDATools.cu -use_fast_math -D CUDA50 -Xcompiler "-fPIC -O2 -g" -gencode=arch=compute_35,code=\"sm_35,compute_35\"
+LINK_FLAGS = -lcuda -lcudart -lcurand
+LINK_FLAGS_COMPUTE_20 = 
+LINK_FLAGS_COMPUTE_35 = -arch=sm_35 -rdc=true -lcudadevrt
 
-GPUBenchmark.o: GPUBenchmark.cpp GPUBenchmark.h
-	nvcc -c GPUBenchmark.cpp -D CUDA50 -Xcompiler "-fPIC -O2 -g"
+CC = nvcc
 
-GPUBenchmark_cu.o: GPUBenchmark.cu GPUBenchmark.h
-	nvcc -c -dc -o GPUBenchmark_cu.o GPUBenchmark.cu -use_fast_math -D CUDA50 -Xcompiler "-fPIC -O2 -g" -gencode=arch=compute_35,code=\"sm_35,compute_35\"
+CPP_FILES = \
+	$(SOURCE_PATH)Common/CTools.cpp \
+	$(SOURCE_PATH)Common/CUDATools.cpp \
+	$(SOURCE_PATH)GPUBenchmark.cpp \
+	$(SOURCE_PATH)Main.cpp
 
-GPUBenchmark: Main.o GPUBenchmark.o GPUBenchmark_cu.o CTools.o CUDATools.o CUDATools_cu.o
-	nvcc -arch=sm_35 -rdc=true -o $@ Main.o GPUBenchmark.o GPUBenchmark_cu.o CTools.o CUDATools.o CUDATools_cu.o -lcuda -lcudart -lcudadevrt -lcurand
+CU_FILES = \
+	$(SOURCE_PATH)Common/CUDATools.cu \
+	$(SOURCE_PATH)GPUBenchmark.cu
+
+CPP_OBJECTS = $(CPP_FILES:.cpp=.o)
+CU_OBJECTS = $(CU_FILES:.cu=_cu.o)
+
+EXECUTABLE = GPUBenchmark
+           
+all:	$(CPP_FILES) $(CU_FILES) $(EXECUTABLE)
+
+$(EXECUTABLE): $(CPP_OBJECTS) $(CU_OBJECTS)
+	$(CC) $(LINK_FLAGS) $(LINK_FLAGS_COMPUTE_20) $(addprefix COMPUTE_20/,$(notdir $(CPP_OBJECTS))) $(addprefix COMPUTE_20/,$(notdir $(CU_OBJECTS))) -o $(addprefix COMPUTE_20/,$@);
+	$(CC) $(LINK_FLAGS) $(LINK_FLAGS_COMPUTE_35) $(addprefix COMPUTE_35/,$(notdir $(CPP_OBJECTS))) $(addprefix COMPUTE_35/,$(notdir $(CU_OBJECTS))) -o $(addprefix COMPUTE_35/,$@)
+
+%.o: %.cpp
+	$(CC) -c $(CPP_FLAGS) $(CPP_FLAGS_COMPUTE_20) $< -o $(addprefix COMPUTE_20/,$(notdir $@));
+	$(CC) -c $(CPP_FLAGS) $(CPP_FLAGS_COMPUTE_35) $< -o $(addprefix COMPUTE_35/,$(notdir $@))
+
+%_cu.o: %.cu
+	$(CC) -c $(CU_FLAGS) $(CU_FLAGS_COMPUTE_20) $< -o $(addprefix COMPUTE_20/,$(notdir $@));
+	$(CC) -c $(CU_FLAGS) $(CU_FLAGS_COMPUTE_35) $< -o $(addprefix COMPUTE_35/,$(notdir $@))
 
 clean:
-	rm *.o GPUBenchmark
-	chmod 644 *.h *.cpp *.cu Makefile
+	rm COMPUTE_20/*.o COMPUTE_35/*.o COMPUTE_20/$(EXECUTABLE) COMPUTE_35/$(EXECUTABLE)
